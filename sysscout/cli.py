@@ -9,6 +9,7 @@ import argparse
 from collections.abc import Sequence
 
 from sysscout import __version__
+from sysscout.network import run_network_checks
 from sysscout.results import CheckResult
 from sysscout.system import run_system_checks
 
@@ -86,19 +87,20 @@ def run_scan(args: argparse.Namespace) -> int:
     )
     print_section("System Health", system_results)
 
-    # Placeholders until Stages 3-4.
     if not args.no_network:
-        print(f"\n(Network checks to {args.host}:{args.port} arrive in Stage 3)")
+        network_results = run_network_checks(args.host, args.port, args.timeout, args.tls)
+        print_section(f"Network ({args.host}:{args.port})", network_results)
+
     if args.output:
-        print(f"(JSON report to {args.output} arrives in Stage 4)")
+        print(f"\n(JSON report to {args.output} arrives in Stage 4)")
     return 0
 
 
 def run_network(args: argparse.Namespace) -> int:
     """Network-only checks against one explicitly chosen destination."""
-    print("SysScout network  [Stage 1 skeleton: checks not implemented yet]")
-    print(f"  Target  -> {args.host}:{args.port}")
-    print(f"  Timeout -> {args.timeout:g}s")
+    print("SysScout network")
+    results = run_network_checks(args.host, args.port, args.timeout, args.tls)
+    print_section(f"Network ({args.host}:{args.port})", results)
     return 0
 
 
@@ -123,6 +125,11 @@ def _add_network_arguments(parser: argparse.ArgumentParser) -> None:
         default=DEFAULT_TIMEOUT,
         metavar="SECONDS",
         help="give up on each network step after this long (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--tls",
+        action="store_true",
+        help="run the HTTPS/TLS check even when --port is not 443 (e.g. 8443)",
     )
 
 

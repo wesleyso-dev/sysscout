@@ -17,12 +17,14 @@ class Status(StrEnum):
     WARNING - measured, and worth a technician's attention
     FAIL    - the check could not complete, or the thing tested is broken
     INFO    - informational only (e.g. OS version); nothing to judge
+    SKIPPED - not run, usually because an earlier step it depends on failed
     """
 
     PASS = "PASS"
     WARNING = "WARNING"
     FAIL = "FAIL"
     INFO = "INFO"
+    SKIPPED = "SKIPPED"
 
 
 @dataclass
