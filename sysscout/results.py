@@ -44,3 +44,21 @@ class CheckResult:
     status: Status
     summary: str
     details: dict[str, Any] = field(default_factory=dict)
+
+
+def overall_status(results: list[CheckResult]) -> Status:
+    """The worst status across all checks: FAIL > WARNING > PASS.
+
+    INFO and SKIPPED don't count (a SKIPPED check always has a FAIL before it).
+    """
+    statuses = {result.status for result in results}
+    if Status.FAIL in statuses:
+        return Status.FAIL
+    if Status.WARNING in statuses:
+        return Status.WARNING
+    return Status.PASS
+
+
+# Process exit codes, following the Nagios monitoring-plugin convention that
+# many IT monitoring tools understand: 0 = OK, 1 = WARNING, 2 = CRITICAL.
+EXIT_CODES = {Status.PASS: 0, Status.WARNING: 1, Status.FAIL: 2}

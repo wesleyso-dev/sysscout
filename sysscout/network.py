@@ -215,7 +215,8 @@ def check_https(host: str, address: str, port: int, timeout: float) -> CheckResu
     # Order matters: the more specific exception classes must come first,
     # because SSLCertVerificationError is an SSLError, which is an OSError.
     except ssl.SSLCertVerificationError as error:
-        return _failed("https", label, "cert_verification", error.verify_message or str(error), host=host)
+        message = (error.verify_message or str(error)).rstrip(".")
+        return _failed("https", label, "cert_verification", message, host=host)
     except ssl.SSLError as error:
         return _failed("https", label, "tls_error", error.reason or str(error), host=host)
     except OSError as error:

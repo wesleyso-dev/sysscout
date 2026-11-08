@@ -6,11 +6,15 @@ recommendations.py, and reports.py (added in later stages).
 """
 
 import argparse
+import sys
+import textwrap
 from collections.abc import Sequence
 
 from sysscout import __version__
 from sysscout.network import run_network_checks
-from sysscout.results import CheckResult
+from sysscout.recommendations import Recommendation, build_recommendations
+from sysscout.reports import build_report, write_report
+from sysscout.results import EXIT_CODES, CheckResult, Status, overall_status
 from sysscout.system import run_system_checks
 
 DEFAULT_HOST = "example.com"
@@ -74,6 +78,48 @@ def print_section(title: str, results: list[CheckResult]) -> None:
         print(format_result(result))
 
 
+def print_recommendations(recommendations: list[Recommendation]) -> None:
+    print("\nRecommendations")
+    print("---------------")
+    if not recommendations:
+        print("  No issues found.")
+        return
+    for number, rec in enumerate(recommendations, start=1):
+        # Wrap long messages so they read well in a normal-width terminal.
+        print(textwrap.fill(
+            f"{number}. [{rec.status}] {rec.message}",
+            width=88, initial_indent="  ", subsequent_indent="     ",
+        ))
+
+
+def _settings_from_args(args: argparse.Namespace) -> dict:
+    """The options the user chose, for the report (minus internal fields)."""
+    return {
+        key: value for key, value in vars(args).items()
+        if key not in ("handler", "command", "output")
+    }
+
+
+def finish(args: argparse.Namespace, results: list[CheckResult]) -> int:
+    """Shared ending for every command: recommendations, report, exit code."""
+    recommendations = build_recommendations(results)
+    print_recommendations(recommendations)
+
+    status = overall_status(results)
+    print(f"\nOverall: {status}")
+
+    if args.output:
+        report = build_report(args.command, _settings_from_args(args), results, recommendations)
+        try:
+            path = write_report(report, args.output)
+        except OSError as error:
+            print(f"Error: could not write report to {args.output}: {error}", file=sys.stderr)
+            return EXIT_CODES[Status.FAIL]
+        print(f"Report saved to {path}")
+
+    return EXIT_CODES[status]
+
+
 # --- Command handlers -------------------------------------------------------
 
 def run_scan(args: argparse.Namespace) -> int:
@@ -87,13 +133,12 @@ def run_scan(args: argparse.Namespace) -> int:
     )
     print_section("System Health", system_results)
 
+    network_results: list[CheckResult] = []
     if not args.no_network:
         network_results = run_network_checks(args.host, args.port, args.timeout, args.tls)
         print_section(f"Network ({args.host}:{args.port})", network_results)
 
-    if args.output:
-        print(f"\n(JSON report to {args.output} arrives in Stage 4)")
-    return 0
+    return finish(args, system_results + network_results)
 
 
 def run_network(args: argparse.Namespace) -> int:
@@ -101,7 +146,7 @@ def run_network(args: argparse.Namespace) -> int:
     print("SysScout network")
     results = run_network_checks(args.host, args.port, args.timeout, args.tls)
     print_section(f"Network ({args.host}:{args.port})", results)
-    return 0
+    return finish(args, results)
 
 
 # --- Parser construction ---------------------------------------------------
@@ -146,6 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  python -m sysscout scan\n"
             "  python -m sysscout scan --disk-warning 90 --output reports/scan.json\n"
             "  python -m sysscout network --host example.com --port 443\n"
+            "\nexit codes: 0 = all passed, 1 = warnings, 2 = failures or usage error"
             "\nrun 'python -m sysscout COMMAND --help' for command options."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -194,6 +240,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Test DNS resolution, TCP connection, and TLS/HTTPS to a single host.",
     )
     _add_network_arguments(network)
+    network.add_argument(
+        "--output", metavar="FILE",
+        help="also save the results as a JSON report, e.g. reports/network.json",
+    )
     network.set_defaults(handler=run_network)
 
     return parser
