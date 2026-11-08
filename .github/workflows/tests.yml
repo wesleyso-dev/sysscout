@@ -1,0 +1,51 @@
+name: tests
+
+# When to run: every push, every pull request, and on demand from the Actions tab.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      # Keep running the other jobs if one fails, so we see every broken platform.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.13"]   # oldest supported and newest tested
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      # The real test suite. A failing test makes pytest exit non-zero,
+      # which fails this step, which fails the job.
+      - name: Run tests
+        run: python -m pytest -v
+
+      # Smoke test: run the real tool against the real runner OS (no mocks),
+      # proving psutil works on each platform and the report is valid JSON.
+      # Thresholds are set to 100 so a busy CI machine can't cause a false failure,
+      # and network checks are skipped so CI doesn't depend on outside websites.
+      - name: Smoke test the CLI on this OS
+        shell: bash
+        run: |
+          python -m sysscout scan --no-network \
+            --cpu-warning 100 --memory-warning 100 --disk-warning 100 \
+            --output reports/ci-scan.json
+          python -c "import json; r = json.load(open('reports/ci-scan.json')); print('report OK:', r['platform'], r['overall_status'])"
