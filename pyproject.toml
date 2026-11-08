@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+# Let tests `import sysscout` from the project root, however pytest is started.
+pythonpath = ["."]
+testpaths = ["tests"]
