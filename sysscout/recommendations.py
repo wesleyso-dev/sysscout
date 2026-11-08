@@ -10,6 +10,7 @@ filled from the result's `details`, e.g. {port}.
 
 from dataclasses import dataclass
 
+from sysscout.network import CERT_EXPIRY_WARNING_DAYS
 from sysscout.results import CheckResult, Status
 
 UPTIME_RESTART_DAYS = 7
@@ -105,7 +106,7 @@ def _recommend(result: CheckResult) -> str | None:
     if result.status == Status.WARNING:
         if result.check_id == "https":
             # HTTPS warnings have two different causes; say which one.
-            if result.details.get("cert_days_left", 999) < 14:
+            if result.details.get("cert_days_left", 999) < CERT_EXPIRY_WARNING_DAYS:
                 return (
                     f"The certificate for {result.details['host']} expires in "
                     f"{result.details['cert_days_left']:.0f} days. Notify the site owner."
