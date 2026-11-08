@@ -9,6 +9,8 @@ import argparse
 from collections.abc import Sequence
 
 from sysscout import __version__
+from sysscout.results import CheckResult
+from sysscout.system import run_system_checks
 
 DEFAULT_HOST = "example.com"
 DEFAULT_PORT = 443
@@ -57,22 +59,38 @@ def positive_seconds(value: str) -> float:
     return seconds
 
 
-# --- Command handlers (placeholders until Stages 2-4) ---------------------
+# --- Output formatting -----------------------------------------------------
+
+def format_result(result: CheckResult) -> str:
+    """One aligned line per check, e.g. 'CPU Usage         23.0% ...   [PASS]'."""
+    return f"  {result.label:<18}{result.summary:<50} [{result.status}]"
+
+
+def print_section(title: str, results: list[CheckResult]) -> None:
+    print(f"\n{title}")
+    print("-" * len(title))
+    for result in results:
+        print(format_result(result))
+
+
+# --- Command handlers -------------------------------------------------------
 
 def run_scan(args: argparse.Namespace) -> int:
     """Full scan: system health + (optionally) network checks."""
-    print("SysScout scan  [Stage 1 skeleton: checks not implemented yet]")
-    print(
-        f"  Warning thresholds -> CPU {args.cpu_warning:g}%, "
-        f"memory {args.memory_warning:g}%, disk {args.disk_warning:g}%"
+    print("SysScout scan")
+    system_results = run_system_checks(
+        cpu_warning=args.cpu_warning,
+        memory_warning=args.memory_warning,
+        disk_warning=args.disk_warning,
+        disk_path=args.disk_path,
     )
-    print(f"  Disk to check      -> {args.disk_path or '(system drive)'}")
-    if args.no_network:
-        print("  Network checks     -> skipped (--no-network)")
-    else:
-        print(f"  Network target     -> {args.host}:{args.port} (timeout {args.timeout:g}s)")
+    print_section("System Health", system_results)
+
+    # Placeholders until Stages 3-4.
+    if not args.no_network:
+        print(f"\n(Network checks to {args.host}:{args.port} arrive in Stage 3)")
     if args.output:
-        print(f"  JSON report        -> {args.output}")
+        print(f"(JSON report to {args.output} arrives in Stage 4)")
     return 0
 
 
