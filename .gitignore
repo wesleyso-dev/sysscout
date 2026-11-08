@@ -1,0 +1,15 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Generated diagnostic reports (may contain machine details; don't commit)
+reports/
+
+# OS clutter
+.DS_Store
+Thumbs.db
